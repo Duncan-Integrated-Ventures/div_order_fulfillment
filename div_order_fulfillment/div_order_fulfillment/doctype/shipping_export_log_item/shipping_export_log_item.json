@@ -1,0 +1,42 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-18 14:06:57.003766",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "packing_slip",
+  "package_count"
+ ],
+ "fields": [
+  {
+   "fieldname": "packing_slip",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Packing Slip",
+   "options": "Packing Slip"
+  },
+  {
+   "fieldname": "package_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Package Count"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-18 14:07:36.852891",
+ "modified_by": "Administrator",
+ "module": "DIV Order Fulfillment",
+ "name": "Shipping Export Log Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

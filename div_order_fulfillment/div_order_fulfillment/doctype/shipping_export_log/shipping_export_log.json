@@ -1,0 +1,92 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-18 14:09:25.150045",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "adapter",
+  "user",
+  "column_break_alcs",
+  "file_name",
+  "row_count",
+  "section_break_wkmy",
+  "packing_slips"
+ ],
+ "fields": [
+  {
+   "depends_on": "eval:doc.__islocal",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "SHIP-EXP-.YYYY.-.#####"
+  },
+  {
+   "fieldname": "adapter",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Adapter",
+   "options": "Shipping Export Adapter"
+  },
+  {
+   "fieldname": "row_count",
+   "fieldtype": "Int",
+   "label": "Row Count"
+  },
+  {
+   "fieldname": "column_break_alcs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User"
+  },
+  {
+   "fieldname": "file_name",
+   "fieldtype": "Data",
+   "label": "File Name"
+  },
+  {
+   "fieldname": "section_break_wkmy",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "packing_slips",
+   "fieldtype": "Table",
+   "label": "Packing Slips",
+   "options": "Shipping Export Log Item"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-18 15:09:11.753668",
+ "modified_by": "Administrator",
+ "module": "DIV Order Fulfillment",
+ "name": "Shipping Export Log",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
