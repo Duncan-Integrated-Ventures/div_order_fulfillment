@@ -43,10 +43,10 @@ def spread_across_packages(
 	# Warn when existing picks would get re-distributed so the user is explicit
 	# about it. The data transformation is deterministic (serials are preserved,
 	# just re-split across the new box count), but the per-box assignment changes.
-	if _has_picked_bundles(ps) and not cint(force):
+	if has_picked_bundles(ps) and not cint(force):
 		return {"status": "needs_confirmation"}
 
-	_reconcile_rows(ps, from_no, package_count)
+	reconcile_rows(ps, from_no, package_count)
 	ps.save()
 	return {"status": "ok", "name": ps.name}
 
@@ -69,20 +69,20 @@ def validate(doc, method=None):
 			row.custom_package_no = from_no
 
 	package_count = to_no - from_no + 1
-	if _needs_reconcile(doc, from_no, package_count):
-		_reconcile_rows(doc, from_no, package_count)
+	if needs_reconcile(doc, from_no, package_count):
+		reconcile_rows(doc, from_no, package_count)
 
-	_validate_serial_subsets_and_overlap(doc)
+	validate_serial_subsets_and_overlap(doc)
 
 
 # ---- Spread mechanics -----------------------------------------------------
 
 
-def _has_picked_bundles(doc) -> bool:
+def has_picked_bundles(doc) -> bool:
 	return any(r.get("custom_serial_and_batch_bundle") for r in doc.items)
 
 
-def _needs_reconcile(doc, from_no: int, package_count: int) -> bool:
+def needs_reconcile(doc, from_no: int, package_count: int) -> bool:
 	"""Return True when the current row layout doesn't match the expected set of
 	package_nos (from_no..from_no+package_count-1). Each source — identified by
 	(dn_detail, pi_detail, item_code) — is expected to have exactly one row per
@@ -102,18 +102,18 @@ def _needs_reconcile(doc, from_no: int, package_count: int) -> bool:
 	return False
 
 
-def _reconcile_rows(doc, from_no: int, package_count: int) -> None:
+def reconcile_rows(doc, from_no: int, package_count: int) -> None:
 	"""Collapse sibling rows back into one source per (dn_detail, pi_detail,
 	item_code), then fan out across `package_count` packages. Works in both
 	directions: expanding the range splits serials, narrowing it re-merges them
 	into fewer rows."""
-	sources = _collect_sources(doc.items)
+	sources = collect_sources(doc.items)
 	doc.set("items", [])
 	for src in sources:
-		_fan_out_source(doc, src, from_no, package_count)
+		fan_out_source(doc, src, from_no, package_count)
 
 
-def _collect_sources(rows) -> list[dict]:
+def collect_sources(rows) -> list[dict]:
 	"""Group spread siblings back into single source rows. For each unique
 	(dn_detail, pi_detail, item_code) tuple, sum the qty across all rows and
 	concatenate every row's bundle serials in row order. The first row's other
@@ -125,7 +125,7 @@ def _collect_sources(rows) -> list[dict]:
 			row.get("pi_detail") or "",
 			row.get("item_code") or "",
 		)
-		row_serials = _bundle_serials(row.get("custom_serial_and_batch_bundle"))
+		row_serials = bundle_serials(row.get("custom_serial_and_batch_bundle"))
 		src = groups.get(key)
 		if src is None:
 			src = row.as_dict()
@@ -143,11 +143,11 @@ def _collect_sources(rows) -> list[dict]:
 	return list(groups.values())
 
 
-def _fan_out_source(doc, src: dict, from_no: int, n: int) -> None:
+def fan_out_source(doc, src: dict, from_no: int, n: int) -> None:
 	total_qty = flt(src.get("qty"))
-	splits = _split_counts(total_qty, n)
+	splits = split_counts(total_qty, n)
 	serials = src.get("_serials") or []
-	slices = _slice_serials(serials, splits)
+	slices = slice_serials(serials, splits)
 
 	# Fields that must not copy onto new child rows.
 	drop = {
@@ -172,21 +172,21 @@ def _fan_out_source(doc, src: dict, from_no: int, n: int) -> None:
 		new_row.qty = qty
 		new_row.custom_package_no = from_no + i
 		if slices[i]:
-			new_row.custom_serial_and_batch_bundle = _clone_bundle_with_serials(
+			new_row.custom_serial_and_batch_bundle = clone_bundle_with_serials(
 				src.get("_template_bundle"), slices[i], qty
 			)
 		else:
 			new_row.custom_serial_and_batch_bundle = None
 
 
-def _split_counts(total: float, n: int) -> list[float]:
+def split_counts(total: float, n: int) -> list[float]:
 	if n <= 1:
 		return [total]
 	base = math.ceil(total / n)
 	return [float(base)] * (n - 1) + [float(total - base * (n - 1))]
 
 
-def _slice_serials(serials: list[str], splits: list[float]) -> list[list[str]]:
+def slice_serials(serials: list[str], splits: list[float]) -> list[list[str]]:
 	out: list[list[str]] = []
 	cursor = 0
 	for qty in splits:
@@ -199,7 +199,7 @@ def _slice_serials(serials: list[str], splits: list[float]) -> list[list[str]]:
 # ---- Bundle helpers -------------------------------------------------------
 
 
-def _bundle_serials(bundle_name: str | None) -> list[str]:
+def bundle_serials(bundle_name: str | None) -> list[str]:
 	if not bundle_name or not frappe.db.exists("Serial and Batch Bundle", bundle_name):
 		return []
 	entries = frappe.get_all(
@@ -211,7 +211,7 @@ def _bundle_serials(bundle_name: str | None) -> list[str]:
 	return [e.serial_no for e in entries if e.serial_no]
 
 
-def _clone_bundle_with_serials(
+def clone_bundle_with_serials(
 	source_bundle: str | None, serials: list[str], qty: float
 ) -> str | None:
 	"""Create a new Serial and Batch Bundle holding the given serials. Copies
@@ -247,9 +247,9 @@ def _clone_bundle_with_serials(
 # ---- Validation -----------------------------------------------------------
 
 
-def _validate_serial_subsets_and_overlap(doc) -> None:
+def validate_serial_subsets_and_overlap(doc) -> None:
 	dn = doc.delivery_note
-	sibling_serials = _collect_sibling_serials(dn, exclude_ps=doc.name or "")
+	sibling_serials = collect_sibling_serials(dn, exclude_ps=doc.name or "")
 	dn_serials_cache: dict[str, set[str]] = {}
 	on_this_doc: dict[str, str] = {}
 
@@ -257,7 +257,7 @@ def _validate_serial_subsets_and_overlap(doc) -> None:
 		bundle = row.get("custom_serial_and_batch_bundle")
 		if not bundle:
 			continue
-		serials = _bundle_serials(bundle)
+		serials = bundle_serials(bundle)
 
 		if serials and len(serials) != int(flt(row.qty)):
 			frappe.throw(
@@ -272,7 +272,7 @@ def _validate_serial_subsets_and_overlap(doc) -> None:
 				dn_bundle = frappe.db.get_value(
 					"Delivery Note Item", dn_item, "serial_and_batch_bundle"
 				)
-				dn_serials_cache[dn_item] = set(_bundle_serials(dn_bundle))
+				dn_serials_cache[dn_item] = set(bundle_serials(dn_bundle))
 			dn_set = dn_serials_cache[dn_item]
 			if dn_set:
 				out_of_set = [s for s in serials if s not in dn_set]
@@ -295,7 +295,7 @@ def _validate_serial_subsets_and_overlap(doc) -> None:
 			on_this_doc[sn] = str(row.idx)
 
 
-def _collect_sibling_serials(dn: str, exclude_ps: str) -> dict[str, str]:
+def collect_sibling_serials(dn: str, exclude_ps: str) -> dict[str, str]:
 	"""Return {serial_no: 'Packing Slip X pkg N'} for every serial claimed on
 	any non-cancelled Packing Slip for `dn` other than `exclude_ps`."""
 	if not dn:
@@ -321,6 +321,6 @@ def _collect_sibling_serials(dn: str, exclude_ps: str) -> dict[str, str]:
 		fields=["parent", "custom_serial_and_batch_bundle", "custom_package_no"],
 	)
 	for r in rows:
-		for sn in _bundle_serials(r.custom_serial_and_batch_bundle):
+		for sn in bundle_serials(r.custom_serial_and_batch_bundle):
 			out[sn] = f"{r.parent} pkg {r.custom_package_no}"
 	return out

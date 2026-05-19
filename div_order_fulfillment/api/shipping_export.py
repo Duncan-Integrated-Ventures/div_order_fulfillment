@@ -38,14 +38,14 @@ def export_shipping_csv(packing_slips: list | str, adapter: str) -> dict:
 	rows = []
 	per_ps_counts: dict[str, int] = {}
 	for ps_name in packing_slips:
-		ps_rows = _expand_packing_slip(ps_name)
+		ps_rows = expand_packing_slip(ps_name)
 		per_ps_counts[ps_name] = len(ps_rows)
 		rows.extend(ps_rows)
 
-	csv_content = _format_csv(rows, adapter_doc)
-	filename = _build_filename(adapter_doc.name)
-	log = _create_log(adapter_doc.name, filename, packing_slips, per_ps_counts, len(rows))
-	_add_comments(packing_slips, log.name, adapter_doc.name)
+	csv_content = format_csv(rows, adapter_doc)
+	filename = build_filename(adapter_doc.name)
+	log = create_log(adapter_doc.name, filename, packing_slips, per_ps_counts, len(rows))
+	add_comments(packing_slips, log.name, adapter_doc.name)
 
 	return {
 		"filename": filename,
@@ -57,9 +57,9 @@ def export_shipping_csv(packing_slips: list | str, adapter: str) -> dict:
 # ---- Row expansion --------------------------------------------------------
 
 
-def _expand_packing_slip(ps_name: str) -> list[dict]:
+def expand_packing_slip(ps_name: str) -> list[dict]:
 	ps = frappe.get_doc("Packing Slip", ps_name)
-	base = _resolve_source_fields(ps)
+	base = resolve_source_fields(ps)
 	from_no = cint(ps.from_case_no) or 1
 	to_no = cint(ps.to_case_no) or from_no
 	if to_no < from_no:
@@ -78,14 +78,14 @@ def _expand_packing_slip(ps_name: str) -> list[dict]:
 	return out
 
 
-def _resolve_source_fields(ps) -> dict:
+def resolve_source_fields(ps) -> dict:
 	dn = (
 		frappe.get_doc("Delivery Note", ps.delivery_note)
 		if ps.delivery_note
 		else frappe._dict()
 	)
-	ship_addr = _address_fields(dn.get("shipping_address_name"))
-	cust_addr = _address_fields(dn.get("customer_address"))
+	ship_addr = address_fields(dn.get("shipping_address_name"))
+	cust_addr = address_fields(dn.get("customer_address"))
 
 	sales_order = None
 	for item in dn.get("items") or []:
@@ -145,7 +145,7 @@ def _resolve_source_fields(ps) -> dict:
 	}
 
 
-def _address_fields(address_name: str | None) -> dict:
+def address_fields(address_name: str | None) -> dict:
 	if not address_name:
 		return {}
 	return (
@@ -162,7 +162,7 @@ def _address_fields(address_name: str | None) -> dict:
 # ---- CSV formatting -------------------------------------------------------
 
 
-def _format_csv(rows: list[dict], adapter_doc) -> str:
+def format_csv(rows: list[dict], adapter_doc) -> str:
 	headers = [c.column_label or "" for c in adapter_doc.columns]
 	buf = io.StringIO()
 	writer = csv.writer(buf, quoting=csv.QUOTE_MINIMAL)
@@ -184,13 +184,13 @@ def _format_csv(rows: list[dict], adapter_doc) -> str:
 # ---- Log + comments -------------------------------------------------------
 
 
-def _build_filename(adapter_name: str) -> str:
+def build_filename(adapter_name: str) -> str:
 	slug = re.sub(r"[^a-z0-9]+", "-", adapter_name.lower()).strip("-")
 	stamp = now_datetime().strftime("%Y%m%d-%H%M%S")
 	return f"shipping-export-{slug}-{stamp}.csv"
 
 
-def _create_log(
+def create_log(
 	adapter: str,
 	filename: str,
 	packing_slips: list[str],
@@ -212,7 +212,7 @@ def _create_log(
 	return log
 
 
-def _add_comments(packing_slips: list[str], log_name: str, adapter_name: str) -> None:
+def add_comments(packing_slips: list[str], log_name: str, adapter_name: str) -> None:
 	link = f'<a href="/app/shipping-export-log/{log_name}">{log_name}</a>'
 	content = _("Exported to shipping CSV via {0} ({1}).").format(
 		link, frappe.utils.escape_html(adapter_name)
